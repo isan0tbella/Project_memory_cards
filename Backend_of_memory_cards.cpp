@@ -84,7 +84,7 @@ void game(int total_of_cards) {
     while (found_pairs < pairs_count) {
         board(cards, revealed, 10);
 
-        double first, second;
+        double first, second; //double не вызовет ошибку если пользователь введет номер 1.5?
         cout << "Выберите первую карту (1-" << total_of_cards << "): ";
         cin >> first;
         cout << "Выберите вторую карту (1-" << total_of_cards << "): ";
