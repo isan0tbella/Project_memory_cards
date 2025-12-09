@@ -1,7 +1,8 @@
-#include "game_card2.h"
+#include "game_card.h"
 #include <cstdlib>
 #include <ctime>
 #include <algorithm>
+#include <iostream>
 
 using namespace Graph_lib;
 
@@ -34,21 +35,35 @@ void update_card_display(int card_index)
         // Удаленная карточка
         card.rect->set_fill_color(Color::green);
         card.rect->set_color(Color::green);
-        card.text->set_color(Color::green);
-        card.text->set_label("");
+        if (card.image_attached && card.img) {
+            main_window->detach(*card.img);
+            card.image_attached = false;
+        }
         if (card.button) card.button->hide();
     } else if (card.flipped) {
         // Открытая карточка
         card.rect->set_fill_color(Color::white);
         card.rect->set_color(Color::black);
-        card.text->set_color(Color::black);
-        card.text->set_label(std::to_string(card.value));
+        
+        // Прикрепляем изображение, если оно еще не прикреплено
+        if (!card.image_attached && card.img) {
+            try {
+                main_window->attach(*card.img);
+                card.image_attached = true;
+            } catch (...) {
+                std::cerr << "Ошибка прикрепления изображения для карточки " << card_index << std::endl;
+            }
+        }
     } else {
         // Закрытая карточка
         card.rect->set_fill_color(Color::blue);
         card.rect->set_color(Color::dark_blue);
-        card.text->set_color(Color::white);
-        card.text->set_label("?");
+        
+        // Отсоединяем изображение, если оно прикреплено
+        if (card.image_attached && card.img) {
+            main_window->detach(*card.img);
+            card.image_attached = false;
+        }
         if (card.button) card.button->show();
     }
     
@@ -58,7 +73,7 @@ void update_card_display(int card_index)
 // Вспомогательная функция для обработки клика по карточке
 void handle_card_click(int card_index)
 {
-    if (!can_flip || card_index >= cards.size() || cards[card_index].flipped || cards[card_index].removed) {
+    if (!can_flip || static_cast<size_t>(card_index) >= cards.size() || cards[card_index].flipped || cards[card_index].removed) {
         return;
     }
     
@@ -211,6 +226,26 @@ void shuffle_remaining_cards()
         if (!card.removed) {
             card.value = remaining_values[value_index++];
             card.flipped = false;
+            
+            // Обновляем изображение для новой карточки
+            if (card.img) {
+                // Удаляем старое изображение
+                if (card.image_attached) {
+                    main_window->detach(*card.img);
+                }
+                delete card.img;
+                
+                // Создаем новое изображение
+                std::string image_path = get_image_path(card.value);
+                try {
+                    card.img = new Image(card.rect->point(0), image_path);
+                    card.image_attached = false;
+                } catch (...) {
+                    std::cerr << "Не удалось загрузить изображение: " << image_path << std::endl;
+                    card.img = nullptr;
+                }
+            }
+            
             update_card_display(&card - &cards[0]);
         }
     }

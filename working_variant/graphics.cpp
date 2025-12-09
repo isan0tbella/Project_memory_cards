@@ -1,8 +1,9 @@
-#include "game_card2.h"
+#include "game_card.h"
 #include <cstdlib>
 #include <string>
 #include <ctime>
 #include <algorithm>
+#include <iostream>  // для отладки
 
 using namespace Graph_lib;
 
@@ -16,6 +17,17 @@ extern bool can_flip;
 extern int attempts_counter;
 extern bool showing_initial_twos;
 extern Callback card_callbacks[TOTAL_CARDS];
+
+// Функция для получения пути к картинке по значению
+std::string get_image_path(int value) {
+    if (value == 2) {
+        return "images/in6.jpg";  // Для двойки используем особую картинку
+    } else if (value >= 1 && value <= 10 && value != 6) {
+        return "images/im" + std::to_string(value) + ".jpg";
+    } else {
+        return "images/im2.jpg";  // Запасной вариант
+    }
+}
 
 // Начать игру после задержки
 void start_game_after_delay(void*)
@@ -37,8 +49,12 @@ void start_game_after_delay(void*)
             card.flipped = false;
             card.rect->set_fill_color(Color::blue);
             card.rect->set_color(Color::dark_blue);
-            card.text->set_color(Color::white);
-            card.text->set_label("?");
+            
+            // Отсоединяем изображение, если оно прикреплено
+            if (card.image_attached && card.img) {
+                main_window->detach(*card.img);
+                card.image_attached = false;
+            }
         }
     }
     
@@ -95,9 +111,11 @@ void clear_window()
             main_window->detach(*card.rect);
             delete card.rect;
         }
-        if (card.text) {
-            main_window->detach(*card.text);
-            delete card.text;
+        if (card.img) {
+            if (card.image_attached) {
+                main_window->detach(*card.img);
+            }
+            delete card.img;
         }
         if (card.button) {
             main_window->detach(*card.button);
@@ -117,8 +135,12 @@ void show_initial_twos()
             cards[i].flipped = true;
             cards[i].rect->set_fill_color(Color::white);
             cards[i].rect->set_color(Color::black);
-            cards[i].text->set_color(Color::black);
-            cards[i].text->set_label(std::to_string(cards[i].value));
+            
+            // Прикрепляем изображение для двойки
+            if (!cards[i].image_attached && cards[i].img) {
+                main_window->attach(*cards[i].img);
+                cards[i].image_attached = true;
+            }
         }
     }
     
@@ -186,15 +208,25 @@ void start_game()
         
         CardState card;
         
+        // Создаем прямоугольник для карточки
         card.rect = new Rectangle(Point(x, y), CARD_WIDTH, CARD_HEIGHT);
         card.rect->set_fill_color(Color::blue);
         card.rect->set_color(Color::dark_blue);
         main_window->attach(*card.rect);
         
-        card.text = new Text(Point(x + CARD_WIDTH/2 - 8, y + CARD_HEIGHT/2 + 4), "?");
-        card.text->set_color(Color::white);
-        main_window->attach(*card.text);
+        // Создаем изображение для карточки
+        std::string image_path = get_image_path(values[i]);
+        try {
+            card.img = new Image(Point(x, y), image_path);
+            // Не прикрепляем изображение сразу - оно будет прикреплено при перевороте
+            card.image_attached = false;
+        } catch (...) {
+            // Если не удалось загрузить изображение, создаем текстовую замену
+            std::cerr << "Не удалось загрузить изображение: " << image_path << std::endl;
+            card.img = nullptr;
+        }
         
+        // Создаем кнопку для карточки
         card.button = new Button(Point(x, y), CARD_WIDTH, CARD_HEIGHT, "", card_callbacks[i]);
         main_window->attach(*card.button);
         
@@ -292,9 +324,11 @@ int main()
         return gui_main();
     }
     catch (const std::exception& e) {
+        std::cerr << "Ошибка: " << e.what() << std::endl;
         return 1;
     }
     catch (...) {
+        std::cerr << "Неизвестная ошибка" << std::endl;
         return 2;
     }
 }
